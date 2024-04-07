@@ -608,7 +608,7 @@ class Processed:
             "version": self.version,
         }
 
-        return json.dumps(obj)
+        return json.dumps(obj, default=lambda o: None)
 
     def infotext(self, p: StableDiffusionProcessing, index):
         return create_infotext(p, self.all_prompts, self.all_seeds, self.all_subseeds, comments=[], position_in_batch=index % self.batch_size, iteration=index // self.batch_size)
@@ -1211,12 +1211,16 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
             if self.hr_sampler_name is not None and self.hr_sampler_name != self.sampler_name:
                 self.extra_generation_params["Hires sampler"] = self.hr_sampler_name
 
-            def get_hr_prompt(negative=False, **kwargs):
-                hr_prompt = getattr(kwargs['p'], 'all_hr_negative_prompts' if negative else 'all_hr_prompts')[kwargs['index']]
-                return hr_prompt if hr_prompt != kwargs['negative_prompt' if negative else 'prompt_text'] else None
+            def get_hr_prompt(**kwargs):
+                hr_prompt = kwargs['p'].all_hr_prompts[kwargs['index']]
+                return hr_prompt if hr_prompt != kwargs['prompt_text'] else None
 
-            self.extra_generation_params["Hires prompt"] = lambda **kwargs: get_hr_prompt(False, **kwargs)
-            self.extra_generation_params["Hires negative prompt"] = lambda **kwargs: get_hr_prompt(True, **kwargs)
+            def get_hr_negative_prompt(**kwargs):
+                hr_negative_prompt = kwargs['p'].all_hr_negative_prompts[kwargs['index']]
+                return hr_negative_prompt if hr_negative_prompt != kwargs['negative_prompt'] else None
+
+            self.extra_generation_params["Hires prompt"] = get_hr_prompt
+            self.extra_generation_params["Hires negative prompt"] = get_hr_negative_prompt
 
             self.extra_generation_params["Hires schedule type"] = None  # to be set in sd_samplers_kdiffusion.py
 
